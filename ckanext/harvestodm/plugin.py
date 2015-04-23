@@ -404,7 +404,7 @@ def _create_harvest_source_object(context, data_dict):
 			  if '/' in base_url1:
 				base_url1=base_url1[:base_url1.find('/')]
 			  base_url='https://'+str(base_url1)
-	  else: base_url=source.url
+    else: base_url=source.url
 
     #source.country=data['country']	
     opt = ['active', 'title', 'description', 'user_id',
