@@ -1,0 +1,9 @@
+
+    [ckan.plugins]
+	# Add plugins here, eg
+	harvestodm=ckanext.harvestodm.plugin:Harvest
+	ckan_harvester=ckanext.harvestodm.harvesters:CKANHarvester
+	test_harvester=ckanext.harvestodm.tests.test_queue:TestHarvester
+	[paste.paster_command]
+	harvester = ckanext.harvestodm.commands.harvester:Harvester
+	
