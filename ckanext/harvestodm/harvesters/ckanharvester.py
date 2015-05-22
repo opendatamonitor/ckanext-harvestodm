@@ -234,6 +234,7 @@ class CKANHarvester(HarvesterBase):
 
 
 	db1=db.odm
+	db_jobs=db.jobs
         url = url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
 	if 'http://data.noe.gv.at' in url:
 		url='http://data.noe.gv.at/api/json/'+harvest_object.guid
@@ -257,6 +258,13 @@ class CKANHarvester(HarvesterBase):
 	#TRANSFORMATIONS TO JSON FOR MongoDB
 	content=json.loads(content)
 	base_url = harvest_object.source.url
+	try:
+	  doc=db_jobs.find_one({"cat_url":str(base_url)})
+	  language=doc['language']
+	  content['extras'].update({"language":language})
+	except:
+	  pass
+	
 	content.update({"catalogue_url":str(base_url)})
 	content.update({"platform":"ckan"})
 	metadata_created=datetime.datetime.now()

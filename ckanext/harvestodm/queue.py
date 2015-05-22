@@ -307,6 +307,11 @@ def fetch_callback(channel, method, header, body):
     channel.basic_ack(method.delivery_tag)
 
 def fetch_and_import_stages(harvester, obj):
+    #source_url = obj.source.url
+    #print('-->  '+str(HarvestObject.source))
+    #objects = model.Session.query(HarvestObject.id) \
+                          #.filter((HarvestObject.source==obj.source.url)).filter((HarvestObject.state!=u'COMPLETE')).filter((HarvestObject.state!=u'ERROR')).filter((HarvestObject.state!=u'ERROR')).order_by(HarvestObject.import_finished.desc())
+    #print('\n'+'\n'+'----------=========-------->this  :'+str(objects.count())+'\n'+'\n')
     obj.fetch_started = datetime.datetime.utcnow()
     obj.state = "FETCH"
     obj.save()

@@ -28,7 +28,19 @@ from ckanext.harvestodm.logic import HarvestJobExists
 from ckanext.harvestodm.logic.schema import harvest_source_show_package_schema
 
 from ckanext.harvestodm.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
+import json
+import pymongo
+import bson
+import configparser
+import logging
+##read from development.ini file all the required parameters
+config = configparser.ConfigParser()
+config.read('/var/local/ckan/default/pyenv/src/ckan/development.ini')
+mongoclient=config['ckan:odm_extensions']['mongoclient']
+mongoport=config['ckan:odm_extensions']['mongoport']
 
+log = logging.getLogger(__name__)
+client = pymongo.MongoClient(str(mongoclient), int(mongoport))
 
 log = logging.getLogger(__name__)
 
@@ -307,7 +319,9 @@ def harvest_jobs_run(context,data_dict):
     if len(jobs):
         for job in jobs:
             if job['gather_finished']:
-		#log.info(job)
+
+                
+                
                 objects = session.query(HarvestObject.id) \
                           .filter(HarvestObject.harvest_job_id==job['id']) \
                           .filter(and_((HarvestObject.state!=u'COMPLETE'),
@@ -315,8 +329,41 @@ def harvest_jobs_run(context,data_dict):
                           .order_by(HarvestObject.import_finished.desc())
 
                 if objects.count() == 0:
-                    job_obj = HarvestJob.get(job['id'])
-                    job_obj.status = u'Finished'
+               
+                    #harmonisation job create for harvest jobs finished fetch stage
+                    job_source_id=job['source_id']
+                    #get harvest info
+                    harvest_source_info= HarvestSource.get(job['source_id'])
+                    cat_url=harvest_source_info.url
+                    title=harvest_source_info.title
+                    db = client.odm
+                    collection=db.jobs
+                    document=collection.find_one({"title":title})
+                    # if job exists then create harmonisation job
+                    if document!=None:
+                       harmonisation_job={}
+                       harmonisation_job['id']=document['id']
+                       harmonisation_job['cat_url']=document['cat_url']
+                       try:
+                          harmonised=document['harmonised']
+                       except KeyError:
+                          harmonised="not yet"
+                       harmonisation_job['harmonised']=harmonised
+                       harmonisation_job['status']="pending"
+                       harmonisation_job['dates']="dates_selected"
+                       harmonisation_job['countries']="countries_selected"
+                       harmonisation_job['catalogue_selection']=title
+                       harmonisation_job['languages']="languages_selected"
+                       harmonisation_job['resources']="resources_selected"
+                       harmonisation_job['licenses']="licenses_selected"
+                       harmonisation_job['categories']="categories_selected"
+                       harmonisation_job['save']="go-harmonisation-complete"
+               
+               ##create harmonise job to db
+                       collection_harmonise_jobs=db.harmonise_jobs
+                       collection_harmonise_jobs.save(harmonisation_job)
+                       job_obj = HarvestJob.get(job['id'])
+                       job_obj.status = u'Finished'
 
                     last_object = session.query(HarvestObject) \
                           .filter(HarvestObject.harvest_job_id==job['id']) \
@@ -328,8 +375,6 @@ def harvest_jobs_run(context,data_dict):
                     job_obj.save()
                     # Reindex the harvest source dataset so it has the latest
                     # status
-
-		    
 
 
                     get_action('harvest_source_reindex')(context,

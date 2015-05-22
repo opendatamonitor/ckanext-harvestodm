@@ -444,9 +444,8 @@ def _update_harvest_source_object(context, data_dict):
         :returns: The created HarvestSource object
         :rtype: HarvestSource object
     '''
-
+    language_mappings={'English':'en','Bulgarian':'bg','Croatian':'hr','Czech':'cs','Danish':'da','German':'de','Greek':'el','Spanish':'es','Estonian':'et','Finnish':'fi','French':'fr','Hungarian':'hu','Italian':'it','Lithuanian':'lt','Latvian':'lv','Maltese':'mt','Dutch':'nl','Polish':'pl','Portuguese':'pt','Romanian':'ro','Slovak':'sk','Swedish':'sv'}
     source_id = data_dict.get('id')
-
     log.info('Harvest source %s update: %r', source_id, data_dict)
     source = HarvestSource.get(source_id)
     if not source:
@@ -485,11 +484,34 @@ def _update_harvest_source_object(context, data_dict):
                 job.status = u'Aborted'
                 job.add()
 
+    client=pymongo.MongoClient(str(mongoclient),int(mongoport))
+    db=client.odm
+    db_jobs=db.jobs
+    if source.type=='html':
+	  if 'http' in source.url and 'https' not in source.url :
+			  base_url1=source.url[7:]
+			  if '/' in base_url1:
+				base_url1=base_url1[:base_url1.find('/')]
+			  base_url='http://'+str(base_url1)
 
-
-
-
-
+	  if 'https' in source.url:
+			  base_url1=source.url[8:]
+			  if '/' in base_url1:
+				base_url1=base_url1[:base_url1.find('/')]
+			  base_url='https://'+str(base_url1)
+    else: base_url=source.url
+    #try:
+    job=db_jobs.find_one({"cat_url":base_url})
+    if job!=None:
+       db_jobs.remove(job)
+		
+    #except:
+	  #pass
+    
+    job={"cat_url":str(base_url),"base_url":str(source.url),"type":str(source.type),"id":str(source.id),"description":str(source.description),"frequency":str(source.frequency),
+		 "title":str(source.title),'country':str(data_dict['__extras']['catalogue_country']),'language':language_mappings[str(data_dict['__extras']['language'])],'catalogue_date_created':str(data_dict['__extras']['catalogue_date_created']),
+		 'catalogue_date_updated':str(data_dict['__extras']['catalogue_date_updated']),'date_harvested':datetime.datetime.now(),'user':str(c.user)}
+    db_jobs.save(job)
 
     return source
 
