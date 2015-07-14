@@ -27,12 +27,12 @@ mongoport=config['ckan:odm_extensions']['mongoport']
 client=pymongo.MongoClient(str(mongoclient), int(mongoport))
 db=client.odm
 odm=db.odm
-document=odm.aggregate([{ "$group" :{"_id" : "$id", "elements" : { "$sum" : 1}}},{"$match": {"elements": {"$gt":0}}},{"$sort":{"elements":-1}}])
-j=0
-ids=[]
-while j<len(document['result']):
-  ids.append(document['result'][j]['_id'])
-  j+=1
+#document=odm.aggregate([{ "$group" :{"_id" : "$id", "elements" : { "$sum" : 1}}},{"$match": {"elements": {"$gt":0}}},{"$sort":{"elements":-1}}])
+#j=0
+#ids=[]
+#while j<len(document['result']):
+  #ids.append(document['result'][j]['_id'])
+  #j+=1
 #print(len(ids))
 
 
@@ -307,13 +307,10 @@ class CKANHarvester(HarvesterBase):
 					l+=1
 				document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
 				if document==None:
-				#if content4['id'] not in ids:
 				  db1.save(content4)
 				  log.info('Metadata stored succesfully to MongoDb.')
 				else:
 					  	
-					  #document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
-					  #if document!=None and len(document.keys())>1:
 						  met_created=document['metadata_created']
 						  content4.update({'metadata_created':met_created})
 						  content4.update({'metadata_updated':str(datetime.datetime.now())})
@@ -321,19 +318,14 @@ class CKANHarvester(HarvesterBase):
 						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
 						  db1.save(content4)
 						  log.info('Metadata updated succesfully to MongoDb.')
-					  #else:	
-						#db1.save(content4)
-						#log.info('Metadata stored succesfully to MongoDb.')		
+	
 			except :
 				try:
 					document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
 					if document==None:
-					#if content4['id'] not in ids:
 					  db1.save(content4)
 					  log.info('Metadata stored succesfully to MongoDb.')
 					else:
-					  #document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
-					  #if document!=None and len(document.keys())>1:
 						  met_created=document['metadata_created']
 						  content4.update({'metadata_created':met_created})
 						  content4.update({'metadata_updated':str(datetime.datetime.now())})
@@ -341,9 +333,7 @@ class CKANHarvester(HarvesterBase):
 						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
 						  db1.save(content4)
 						  log.info('Metadata updated succesfully to MongoDb.')
-					  #else:	
-						#db1.save(content4)
-						#log.info('Metadata stored succesfully to MongoDb.')
+
 				except:
 					pass
 		except SyntaxError:
@@ -353,12 +343,10 @@ class CKANHarvester(HarvesterBase):
 				#text_file.write("Syntax Error")
 				document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
 				if document==None:
-				#if content6['id'] not in ids:
 				  db1.save(content6)
 				  log.info('Metadata stored succesfully to MongoDb.')
 				else:
-					  #document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
-					  #if document!=None and len(document.keys())>1:
+
 						  met_created=document['metadata_created']
 						  content6.update({'metadata_created':met_created})
 						  content6.update({'metadata_updated':str(datetime.datetime.now())})
@@ -366,9 +354,7 @@ class CKANHarvester(HarvesterBase):
 						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
 						  db1.save(content6)
 						  log.info('Metadata updated succesfully to MongoDb.')
-					  #else:	
-						#db1.save(content6)
-						#log.info('Metadata stored succesfully to MongoDb.')
+
 			except SyntaxError:
 				try:
 					content5="content6="+content1.replace("null",'""').replace('""""','""').replace('1.0','"1.0"').replace('2.0','"2.0"').replace('3.0','"3.0"').replace('4.0','"4.0"').replace('5.0','"5.0"')
@@ -389,12 +375,10 @@ class CKANHarvester(HarvesterBase):
 						l+=1
 					document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
 					if document==None:
-					#if content6['id'] not in ids:
 					  db1.save(content6)
 					  log.info('Metadata stored succesfully to MongoDb.')
 					else:
-					  #document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
-					  #if document!=one and len(document.keys())>1:
+
 						  met_created=document['metadata_created']
 						  content6.update({'metadata_created':met_created})
 						  content6.update({'metadata_updated':str(datetime.datetime.now())})
@@ -402,9 +386,6 @@ class CKANHarvester(HarvesterBase):
 						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
 						  db1.save(content6)
 						  log.info('Metadata updated succesfully to MongoDb.')
-					 # else:	
-						#db1.save(content6)
-						#log.info('Metadata stored succesfully to MongoDb.')
 				except SyntaxError:
 					text_file.write('Json Error : '+'\n')
 					text_file.write(str(content)+'\n'+'\n')
