@@ -71,7 +71,7 @@
         {% endif %}
         <label class="radio">
         {#{{ "checked " if checked else "disabled"}}#}
-          <input type="radio" name="source_type" value="{{ harvester['name'] }}" {{ "checked " if checked else ""}} data-module="harvest-type-change">
+          <input type="radio" name="source_type" value="{{ harvester['name'] }}" {{ "checked " if data.source_type=="ckan" else "disabled" if harvester['name']=="html" }} data-module="harvest-type-change">
           {{ harvester['title'] }}
           <i class="icon-question-sign muted" title="{{ harvester['description'] }}" data-toggle="tooltip"></i>
         </label>

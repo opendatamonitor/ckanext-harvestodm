@@ -24,6 +24,18 @@ ckan_harvester_error_log=str(log_path)+'ckan/Errorlog.txt'
 mongoclient=config['ckan:odm_extensions']['mongoclient']
 mongoport=config['ckan:odm_extensions']['mongoport']
 
+client=pymongo.MongoClient(str(mongoclient), int(mongoport))
+db=client.odm
+odm=db.odm
+document=odm.aggregate([{ "$group" :{"_id" : "$id", "elements" : { "$sum" : 1}}},{"$match": {"elements": {"$gt":0}}},{"$sort":{"elements":-1}}])
+j=0
+ids=[]
+while j<len(document['result']):
+  ids.append(document['result'][j]['_id'])
+  j+=1
+#print(len(ids))
+
+
 
 class CKANHarvester(HarvesterBase):
     '''
@@ -150,41 +162,42 @@ class CKANHarvester(HarvesterBase):
         base_search_url = base_url + self._get_search_api_offset()
 
         if (previous_job and not previous_job.gather_errors and not len(previous_job.objects) == 0):
+            print('previous job found')
             if not self.config.get('force_all',False):
-                get_all_packages = False
+                get_all_packages = True
 
                 # Request only the packages modified since last harvest job
-                last_time = previous_job.gather_finished.isoformat()
-                url = base_search_url + '/revision?since_time=%s' % last_time
+                #last_time = previous_job.gather_finished.isoformat()
+                #url = base_search_url + '/revision?since_time=%s' % last_time
 
-                try:
-                    content = self._get_content(url)
+                #try:
+                 #   content = self._get_content(url)
 
-                    revision_ids = json.loads(content)
-                    if len(revision_ids):
-                        for revision_id in revision_ids:
-                            url = base_rest_url + '/revision/%s' % revision_id
-                            try:
-                                content = self._get_content(url)
-                            except Exception,e:
-                                self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
-                                continue
+                  #  revision_ids = json.loads(content)
+                   # if len(revision_ids):
+                    #    for revision_id in revision_ids:
+                     #       url = base_rest_url + '/revision/%s' % revision_id
+                      #      try:
+                       #         content = self._get_content(url)
+                        #    except Exception,e:
+                         #       self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+                          #      continue
 
-                            revision = json.loads(content)
-                            for package_id in revision['packages']:
-                                if not package_id in package_ids:
-                                    package_ids.append(package_id)
-                    else:
-                        log.info('No packages have been updated on the remote CKAN instance since the last harvest job')
-                        return None
+                           # revision = json.loads(content)
+                            #for package_id in revision['packages']:
+                             #   if not package_id in package_ids:
+                              #      package_ids.append(package_id)
+                    #else:
+                     #   log.info('No packages have been updated on the remote CKAN instance since the last harvest job')
+                      #  return None
 
-                except urllib2.HTTPError,e:
-                    if e.getcode() == 400:
-                        log.info('CKAN instance %s does not suport revision filtering' % base_url)
-                        get_all_packages = True
-                    else:
-                        self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
-                        return None
+                #except urllib2.HTTPError,e:
+                 #   if e.getcode() == 400:
+                  #      log.info('CKAN instance %s does not suport revision filtering' % base_url)
+                   #     get_all_packages = True
+                    #else:
+                     #   self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+                      #  return None
 
 
 
@@ -227,10 +240,9 @@ class CKANHarvester(HarvesterBase):
         # Get source URL
         url = harvest_object.source.url.rstrip('/')
 	text_file = open(str(ckan_harvester_error_log), "a")
-
+	print(url)
 	#-- Connect to mongoDb:
-	client = pymongo.MongoClient(str(mongoclient), int(mongoport))
-	db = client.odm
+	
 
 
 	db1=db.odm
@@ -239,6 +251,7 @@ class CKANHarvester(HarvesterBase):
 	if 'http://data.noe.gv.at' in url:
 		url='http://data.noe.gv.at/api/json/'+harvest_object.guid
         # Get contents
+        #print(str(datetime.datetime.now())+"try to get content")	
         try:
             content = self._get_content(url)
         except Exception,e:
@@ -247,89 +260,157 @@ class CKANHarvester(HarvesterBase):
             return None
 
 
-
+        #print(str(datetime.datetime.now())+"got content")
         # Save the fetched contents in the HarvestObject
         harvest_object.content = content
 	try:
         	harvest_object.save()
 	except:
 		pass
-
+        #print(str(datetime.datetime.now())+"try to store")
 	#TRANSFORMATIONS TO JSON FOR MongoDB
-	content=json.loads(content)
-	base_url = harvest_object.source.url
 	try:
-	  doc=db_jobs.find_one({"cat_url":str(base_url)})
-	  language=doc['language']
-	  content['extras'].update({"language":language})
-	except:
-	  pass
-	
-	content.update({"catalogue_url":str(base_url)})
-	content.update({"platform":"ckan"})
-	metadata_created=datetime.datetime.now()
-	content.update({"metadata_created":str(metadata_created)})
-	content.update({"metadata_modified":str(metadata_created)})
-	content1=str(content)
-	content2=content1.replace("null",'""').replace("true","'true'").replace("false","'false'").replace('""""','""')
-	content3="content4="+content2
-
-	#-- STORE to Mongodb
-	try:
-		exec(content3)
+		content=json.loads(content)
+		base_url = harvest_object.source.url
 		try:
-			for key, value in content4['extras'].iteritems():
-				 if '.' in key:
-					 temp=key.replace('.','_')
-					 content4['extras'][temp]=value
-					 del content4['extras'][key]
-			l=0
-			while l<len(content4['resources']):
-				for key, value in content4['resources'][l].iteritems():
+		  doc=db_jobs.find_one({"cat_url":str(base_url)})
+		  language=doc['language']
+		  content['extras'].update({"language":language})
+		except:
+		  pass
+	
+		content.update({"catalogue_url":str(base_url)})
+		content.update({"platform":"ckan"})
+		metadata_created=datetime.datetime.now()
+		content.update({"metadata_created":str(metadata_created)})
+		content.update({"metadata_modified":str(metadata_created)})
+		content1=str(content)
+		content2=content1.replace("null",'""').replace("true","'true'").replace("false","'false'").replace('""""','""')
+		content3="content4="+content2
+
+		#-- STORE to Mongodb
+		try:
+			exec(content3)
+			try:
+				for key, value in content4['extras'].iteritems():
 					 if '.' in key:
 						 temp=key.replace('.','_')
-						 content4['resources'][temp]=value
-						 del content4['resources'][key]
-				l+=1
-
-
-			db1.save(content4)
-		except :
-			try:
-				db1.save(content4)
-			except:
-				pass
-	except SyntaxError:
-		content5="content6="+content1.replace("null",'""').replace('""""','""')
-		try:
-			exec(content5)
-			#text_file.write("Syntax Error")
-			db1.save(content6)
-		except SyntaxError:
-			try:
-				content5="content6="+content1.replace("null",'""').replace('""""','""').replace('1.0','"1.0"').replace('2.0','"2.0"').replace('3.0','"3.0"').replace('4.0','"4.0"').replace('5.0','"5.0"')
-				exec(content5)
-	#	text_file.write("Syntax Error")
-				for key, value in content6['extras'].iteritems():
-				    if '.' in key:
-					 temp=key.replace('.','_')
-					 content6['extras'][temp]=value
-					 del content6['extras'][key]
+						 content4['extras'][temp]=value
+						 del content4['extras'][key]
 				l=0
 				while l<len(content4['resources']):
-					for key, value in content6['resources'][l].iteritems():
+					for key, value in content4['resources'][l].iteritems():
 						 if '.' in key:
 							 temp=key.replace('.','_')
-							 content6['resources'][temp]=value
-							 del content6['resources'][key]
+							 content4['resources'][temp]=value
+							 del content4['resources'][key]
 					l+=1
-
-				db1.save(content6)
+				document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+				if document==None:
+				#if content4['id'] not in ids:
+				  db1.save(content4)
+				  log.info('Metadata stored succesfully to MongoDb.')
+				else:
+					  	
+					  #document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+					  #if document!=None and len(document.keys())>1:
+						  met_created=document['metadata_created']
+						  content4.update({'metadata_created':met_created})
+						  content4.update({'metadata_updated':str(datetime.datetime.now())})
+						  content4.update({'updated_dataset':True})
+						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+						  db1.save(content4)
+						  log.info('Metadata updated succesfully to MongoDb.')
+					  #else:	
+						#db1.save(content4)
+						#log.info('Metadata stored succesfully to MongoDb.')		
+			except :
+				try:
+					document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+					if document==None:
+					#if content4['id'] not in ids:
+					  db1.save(content4)
+					  log.info('Metadata stored succesfully to MongoDb.')
+					else:
+					  #document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+					  #if document!=None and len(document.keys())>1:
+						  met_created=document['metadata_created']
+						  content4.update({'metadata_created':met_created})
+						  content4.update({'metadata_updated':str(datetime.datetime.now())})
+						  content4.update({'updated_dataset':True})
+						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+						  db1.save(content4)
+						  log.info('Metadata updated succesfully to MongoDb.')
+					  #else:	
+						#db1.save(content4)
+						#log.info('Metadata stored succesfully to MongoDb.')
+				except:
+					pass
+		except SyntaxError:
+			content5="content6="+content1.replace("null",'""').replace('""""','""')
+			try:
+				exec(content5)
+				#text_file.write("Syntax Error")
+				document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+				if document==None:
+				#if content6['id'] not in ids:
+				  db1.save(content6)
+				  log.info('Metadata stored succesfully to MongoDb.')
+				else:
+					  #document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+					  #if document!=None and len(document.keys())>1:
+						  met_created=document['metadata_created']
+						  content6.update({'metadata_created':met_created})
+						  content6.update({'metadata_updated':str(datetime.datetime.now())})
+						  content6.update({'updated_dataset':True})
+						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+						  db1.save(content6)
+						  log.info('Metadata updated succesfully to MongoDb.')
+					  #else:	
+						#db1.save(content6)
+						#log.info('Metadata stored succesfully to MongoDb.')
 			except SyntaxError:
-				text_file.write('Json Error : '+'\n')
-				text_file.write(str(content)+'\n'+'\n')
+				try:
+					content5="content6="+content1.replace("null",'""').replace('""""','""').replace('1.0','"1.0"').replace('2.0','"2.0"').replace('3.0','"3.0"').replace('4.0','"4.0"').replace('5.0','"5.0"')
+					exec(content5)
+		#	text_file.write("Syntax Error")
+					for key, value in content6['extras'].iteritems():
+					    if '.' in key:
+						 temp=key.replace('.','_')
+						 content6['extras'][temp]=value
+						 del content6['extras'][key]
+					l=0
+					while l<len(content4['resources']):
+						for key, value in content6['resources'][l].iteritems():
+							 if '.' in key:
+								 temp=key.replace('.','_')
+								 content6['resources'][temp]=value
+								 del content6['resources'][key]
+						l+=1
+					document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+					if document==None:
+					#if content6['id'] not in ids:
+					  db1.save(content6)
+					  log.info('Metadata stored succesfully to MongoDb.')
+					else:
+					  #document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+					  #if document!=one and len(document.keys())>1:
+						  met_created=document['metadata_created']
+						  content6.update({'metadata_created':met_created})
+						  content6.update({'metadata_updated':str(datetime.datetime.now())})
+						  content6.update({'updated_dataset':True})
+						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+						  db1.save(content6)
+						  log.info('Metadata updated succesfully to MongoDb.')
+					 # else:	
+						#db1.save(content6)
+						#log.info('Metadata stored succesfully to MongoDb.')
+				except SyntaxError:
+					text_file.write('Json Error : '+'\n')
+					text_file.write(str(content)+'\n'+'\n')
 
-
+	except:pass
+        #print(str(datetime.datetime.now())+"stored")
         return True
 
     def import_stage(self,harvest_object):
@@ -506,4 +587,5 @@ class CKANHarvester(HarvesterBase):
                     harvest_object, 'Import')
         except Exception, e:
             self._save_object_error('%r'%e,harvest_object,'Import')
+
 

@@ -501,17 +501,27 @@ def _update_harvest_source_object(context, data_dict):
 			  base_url='https://'+str(base_url1)
     else: base_url=source.url
     #try:
-    job=db_jobs.find_one({"cat_url":base_url})
-    if job!=None:
-       db_jobs.remove(job)
-		
+    print(base_url)
+    job1=db_jobs.find_one({"cat_url":base_url})
+    if job1!=None:
+       
     #except:
 	  #pass
     
-    job={"cat_url":str(base_url),"base_url":str(source.url),"type":str(source.type),"id":str(source.id),"description":str(source.description),"frequency":str(source.frequency),
+       job={"cat_url":str(base_url),"base_url":str(source.url),"type":str(source.type),"id":str(source.id),"description":str(job1['description']),"frequency":str(source.frequency),
 		 "title":str(source.title),'country':str(data_dict['__extras']['catalogue_country']),'language':language_mappings[str(data_dict['__extras']['language'])],'catalogue_date_created':str(data_dict['__extras']['catalogue_date_created']),
-		 'catalogue_date_updated':str(data_dict['__extras']['catalogue_date_updated']),'date_harvested':datetime.datetime.now(),'user':str(c.user)}
-    db_jobs.save(job)
+		 'catalogue_date_updated':str(data_dict['__extras']['catalogue_date_updated']),'user':str(job1['user'])}
+       if 'harmonisation' in job1.keys():
+          job.update({'harmonisation':job1['harmonisation']})
+       if 'official' in job1.keys():
+          job.update({'official':job1['official']})
+       if 'date_harvested' in job1.keys():
+          job.update({'date_harvested':job1['date_harvested']})
+       else:
+          job.update({'date_harvested':datetime.datetime.now()})
+       db_jobs.remove({'id':job1['id']})
+       db_jobs.save(job)
+       
 
     return source
 

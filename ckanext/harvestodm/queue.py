@@ -197,20 +197,37 @@ def get_consumer(queue_name, routing_key):
 
 
 def gather_callback(channel, method, header, body):
+    text_file = open("/var/local/ckan/default/pyenv/src/ckanext-harvestodm/ckanext/harvestodm/Gather_log.txt", "a")  
     try:
         id = json.loads(body)['harvest_job_id']
         log.debug('Received harvest job id: %s' % id)
+        text_file.write('\n')
+        text_file.write(str(datetime.datetime.now()))
+        text_file.write(' Received harvest job id: %s' % id)
+        text_file.write('\n')
     except KeyError:
         log.error('No harvest job id received')
+        text_file.write('No harvest job id received')
+        text_file.write('\n')
         channel.basic_ack(method.delivery_tag)
         return False
 
     # Get a publisher for the fetch queue
     publisher = get_fetch_publisher()
     job = HarvestJob.get(id)
+    job_source_id=job.source_id
+    
+    from ckanext.harvestodm.model import HarvestSource
+    harvest_source_info= HarvestSource.get(job_source_id)
+    cat_url=harvest_source_info.url
     #print("====>"+str(job))
+    text_file.write('catalogue url: '+str(cat_url))
+    text_file.write('\n')
+    print("====>"+str(cat_url))
     if not job:
         log.error('Harvest job does not exist: %s' % id)
+        text_file.write('Harvest job does not exist: %s' % id)
+        text_file.write('\n')
         channel.basic_ack(method.delivery_tag)
         return False
 
@@ -242,22 +259,30 @@ def gather_callback(channel, method, header, body):
 
             if not isinstance(harvest_object_ids, list):
                 log.error('Gather stage failed')
+                text_file.write('Gather stage failed')
+                text_file.write('\n')
                 publisher.close()
                 channel.basic_ack(method.delivery_tag)
                 return False
 
             if len(harvest_object_ids) == 0:
                 log.info('No harvest objects to fetch')
+                text_file.write('No harvest objects to fetch')
+                text_file.write('\n')
                 publisher.close()
                 channel.basic_ack(method.delivery_tag)
                 return False
 
             log.debug('Received from plugin gather_stage: {0} objects (first: {1} last: {2})'.format(
                         len(harvest_object_ids), harvest_object_ids[:1], harvest_object_ids[-1:]))
+            connection = get_connection()	
+	    publisher = get_fetch_publisher()   
             for id in harvest_object_ids:
                 # Send the id to the fetch queue
                 publisher.send({'harvest_object_id':id})
             log.debug('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
+            text_file.write('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
+            text_file.write('\n')
 
     if not harvester_found:
         msg = 'No harvester could be found for source type %s' % job.source.type

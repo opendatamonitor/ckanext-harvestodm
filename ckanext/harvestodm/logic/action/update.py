@@ -371,14 +371,18 @@ def harvest_jobs_run(context,data_dict):
                           .order_by(HarvestObject.import_finished.desc()) \
                           .first()
                     if last_object:
-                        job_obj.finished = last_object.import_finished
-                    job_obj.save()
+			try:
+                        	job_obj.finished = last_object.import_finished
+			except:pass
+		    try:
+                    	job_obj.save()
+		    except:pass
                     # Reindex the harvest source dataset so it has the latest
                     # status
 
-
-                    get_action('harvest_source_reindex')(context,
-                        {'id': job_obj.source.id})
+		    try:		
+                    	get_action('harvest_source_reindex')(context,{'id': job_obj.source.id})
+		    except:pass
 
     # resubmit old redis tasks
     resubmit_jobs()
