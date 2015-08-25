@@ -1,9 +1,10 @@
 # ckanext-harvestodm
 
+This is an adapted version of the CKAN harvester extension (https://github.com/ckan/ckanext-harvest), being used in the OpenDataMonitor project to collect metadata from datasets hosted in open data catalogues powered by CKAN.
+
 ## General
 
-
-This is an adapted version of the CKAN harvester extension (https://github.com/ckan/ckanext-harvest), being used in the OpenDataMonitor project to collect metadata from datasets hosted in open data catalogues powered by CKAN.
+## Changes
 
 The main modifications include:
 
