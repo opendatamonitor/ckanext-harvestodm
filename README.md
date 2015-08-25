@@ -4,9 +4,10 @@ This is an adapted version of the CKAN harvester extension (https://github.com/c
 
 ## General
 
-## Changes
 
-The main modifications include:
+## Implementations
+
+Main modifications are:
 
 __during catalogue registration__:
 - the catalogue registration form contains two more fields to be filled in: language and country (values are selected from a drop down menu)
@@ -24,7 +25,7 @@ __during the 'fetch' stage__:
 - check whether a returned JSON document is valid (and try to validate if not)
 - add some extra metadata (language, country, catalogue_url, platfrom, metadata_created, metadata_modified)
 - check whether a metadata record is already present in the MongoDB database, and accordingly create or update
-- collect some statistics (number of metadata records collected) for debugging and monitoring purposes
+- calculated statistics, e.g. number of metadata records collected, for debugging and monitoring purposes
 
 ## Licence
 
