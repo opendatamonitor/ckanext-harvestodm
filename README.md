@@ -1,7 +1,7 @@
 # ckanext-harvestodm
 
 ## General
----
+
 
 This is an adapted version of the CKAN harvester extension (https://github.com/ckan/ckanext-harvest), being used in the OpenDataMonitor project to collect metadata from datasets hosted in open data catalogues powered by CKAN.
 
@@ -26,5 +26,5 @@ __during the 'fetch' stage__:
 - collect some statistics (number of metadata records collected) for debugging and monitoring purposes
 
 ## Licence
----
+
 This work is derived from the CKAN harvester extension (https://github.com/ckan/ckanext-harvest) and thus licensed under the GNU Affero General Public License (AGPL) v3.0 (http://www.fsf.org/licensing/licenses/agpl-3.0.html).
