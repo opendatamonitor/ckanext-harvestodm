@@ -4,6 +4,8 @@ This is an adapted version of the CKAN harvester extension (https://github.com/c
 
 ## General
 
+The ckanext-harvester plugin extended to support storing metadata in mongo DB. 
+Also, changes or modifications added to original code to comply with ODM project's requirements (see below).
 
 ## Implementations
 
@@ -23,7 +25,7 @@ __during the 'gather' stage__:
 
 __during the 'fetch' stage__:
 - check whether a returned JSON document is valid (and try to validate if not)
-- add some extra metadata (language, country, catalogue_url, platfrom, metadata_created, metadata_modified)
+- add some extra metadata (language, country, catalogue_url, platform)
 - check whether a metadata record is already present in the MongoDB database, and accordingly create or update
 - calculated statistics, e.g. number of metadata records collected, for debugging and monitoring purposes
 
