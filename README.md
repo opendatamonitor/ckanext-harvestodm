@@ -13,7 +13,7 @@ The main modifications include:
 - - custom code was added to address the catalogues http://data.noe.gv.at and http://data.gouv.fr, which although powered by CKAN have some modifications in the provided API
 - - collect some statistics (number of metadata records collected) for debugging and monitoring purposes
 - during the 'fetch' stage:
-- - check whether a returned JSON document is valid (and try to validate if not)
+*check whether a returned JSON document is valid (and try to validate if not)
 - - add some extra metadata (language, country, catalogue_url, platfrom, metadata_created, metadata_modified)
 - - check whether a metadata record is already present in the MongoDB database, and accordingly create or update
 - - collect some statistics (number of metadata records collected) for debugging and monitoring purposes
