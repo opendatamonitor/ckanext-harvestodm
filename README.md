@@ -4,8 +4,8 @@ This is an adapted version of the CKAN harvester extension (https://github.com/c
 
 ## General
 
-The ckanext-harvester plugin extended to use mongo DB as metadata repository. 
-Also, changes or modifications added to original code to comply with ODM project's requirements (see below).
+The ckanext-harvestodm plugin adds support in using the mongo DB as metadata repository. 
+Also, changes or modifications added to original code to comply with ODM project's (www.opendatamonitor.eu) requirements (see below).
 
 ## Implementation
 
