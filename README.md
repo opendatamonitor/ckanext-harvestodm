@@ -4,7 +4,7 @@ This is an adapted version of the CKAN harvester extension (https://github.com/c
 
 ## General
 
-The ckanext-harvester plugin extended to support storing metadata in mongo DB. 
+The ckanext-harvester plugin extended to use mongo DB as metadata repository. 
 Also, changes or modifications added to original code to comply with ODM project's requirements (see below).
 
 ## Implementation
@@ -21,13 +21,10 @@ __creation and management of harvest jobs__:
 
 __in 'gather' stage__:
 - custom code was added to address the catalogues http://data.noe.gv.at and http://data.gouv.fr, which although powered by CKAN have some modifications in the provided API
-- collect some statistics (number of metadata records collected) for debugging and monitoring purposes
 
 __in 'fetch' stage__:
-- check whether a returned JSON document is valid (and try to validate if not)
-- add some extra metadata (language, country, catalogue_url, platform)
+- add extra metadata fields (language, country, catalogue_url, platform) or use existing ones in different way (metadata_created and metadata_updated are synchronised to our platform's timings overriding the client's)
 - check whether a metadata record is already present in the MongoDB database, and accordingly create or update
-- calculate statistics, e.g. number of metadata records collected, for debugging and monitoring purposes
 
 ## Licence
 
