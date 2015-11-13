@@ -205,12 +205,40 @@ class Harvest(p.SingletonPlugin, tk.DefaultDatasetForm):
             'catalogue_date_created': [tk.get_validator('ignore_missing'),
                             tk.get_converter('convert_to_extras')]
         })
+			
+	schema.update({
+            'metadata_mappings': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
 	schema.update({
             'catalogue_date_updated': [tk.get_validator('ignore_missing'),
                             tk.get_converter('convert_to_extras')]
         })
 	schema.update({
             'language': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
+			
+	schema.update({
+            'datasets_list_url': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
+	schema.update({
+            'dataset_url': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
+	schema.update({
+            'datasets_list_identifier': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
+	schema.update({
+            'dataset_id': [tk.get_validator('ignore_missing'),
+                            tk.get_converter('convert_to_extras')]
+        })
+        return schema
+
+	schema.update({
+            'apikey': [tk.get_validator('ignore_missing'),
                             tk.get_converter('convert_to_extras')]
         })
         return schema
@@ -375,10 +403,13 @@ def _create_harvest_source_object(context, data_dict):
     log.info('Creating harvest source: %r', data_dict)
     print('##############################')
     print(context)
-    #print(data_dict)
+    print(data_dict)
 
     source = HarvestSource()
-    language_mappings={'English':'en','Bulgarian':'bg','Croatian':'hr','Czech':'cs','Danish':'da','German':'de','Greek':'el','Spanish':'es','Estonian':'et','Finnish':'fi','French':'fr','Hungarian':'hu','Italian':'it','Lithuanian':'lt','Latvian':'lv','Maltese':'mt','Dutch':'nl','Polish':'pl','Portuguese':'pt','Romanian':'ro','Slovak':'sk','Swedish':'sv'}
+    language_mappings={'English':'en','Bulgarian':'bg','Croatian':'hr','Czech':'cs',\
+'Danish':'da','German':'de','Greek':'el','Spanish':'es','Estonian':'et','Finnish':'fi',\
+'French':'fr','Hungarian':'hu','Italian':'it','Lithuanian':'lt','Latvian':'lv','Icelandic':'is',\
+'Maltese':'mt','Dutch':'nl','Polish':'pl','Portuguese':'pt','Romanian':'ro','Slovak':'sk','Swedish':'sv','Ukrainian':'uk','Norwegian':'no'}
     source.id = data_dict['id']
     source.url = data_dict['url'].strip()
     source.catalogue_country=data_dict['catalogue_country']
@@ -424,6 +455,18 @@ def _create_harvest_source_object(context, data_dict):
     job={"cat_url":str(base_url),"base_url":str(source.url),"type":str(source.type),"id":str(source.id),"description":str(source.description),"frequency":str(source.frequency),
 		 "title":str(source.title),'country':str(source.catalogue_country),'language':str(source.language),'catalogue_date_created':str(source.catalogue_date_created),
 		 'catalogue_date_updated':str(source.catalogue_date_updated),'date_harvested':datetime.datetime.now(),'user':str(c.user)}
+    if 'metadata_mappings' in data_dict.keys():
+	  job.update({"metadata_mappings":data_dict["metadata_mappings"]})
+    if 'datasets_list_url' in data_dict.keys():
+	  job.update({"datasets_list_url":data_dict["datasets_list_url"]})
+    if 'dataset_url' in data_dict.keys():
+	  job.update({"dataset_url":data_dict["dataset_url"]})
+    if 'datasets_list_identifier' in data_dict.keys():
+	  job.update({"datasets_list_identifier":data_dict["datasets_list_identifier"]})
+    if 'dataset_id' in data_dict.keys():
+	  job.update({"dataset_id":data_dict["dataset_id"]})
+    if 'apikey' in data_dict['__extras'].keys():
+	  job.update({"apikey":data_dict['__extras']["apikey"]})
     db=client.odm
     collection=db.jobs
     collection.save(job)
@@ -444,7 +487,7 @@ def _update_harvest_source_object(context, data_dict):
         :returns: The created HarvestSource object
         :rtype: HarvestSource object
     '''
-    language_mappings={'English':'en','Bulgarian':'bg','Croatian':'hr','Czech':'cs','Danish':'da','German':'de','Greek':'el','Spanish':'es','Estonian':'et','Finnish':'fi','French':'fr','Hungarian':'hu','Italian':'it','Lithuanian':'lt','Latvian':'lv','Maltese':'mt','Dutch':'nl','Polish':'pl','Portuguese':'pt','Romanian':'ro','Slovak':'sk','Swedish':'sv'}
+    language_mappings={'English':'en','Bulgarian':'bg','Croatian':'hr','Czech':'cs','Danish':'da','Icelandic':'is','German':'de','Greek':'el','Spanish':'es','Estonian':'et','Finnish':'fi','French':'fr','Hungarian':'hu','Italian':'it','Lithuanian':'lt','Latvian':'lv','Maltese':'mt','Dutch':'nl','Polish':'pl','Portuguese':'pt','Romanian':'ro','Slovak':'sk','Swedish':'sv','Ukrainian':'uk','Norwegian':'no'}
     source_id = data_dict.get('id')
     log.info('Harvest source %s update: %r', source_id, data_dict)
     source = HarvestSource.get(source_id)

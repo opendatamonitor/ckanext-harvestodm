@@ -20,9 +20,9 @@ from ckan.model.package import Package
 from ckan.lib.munge import munge_title_to_name
 
 UPDATE_FREQUENCIES = ['MANUAL','MONTHLY','WEEKLY','BIWEEKLY','DAILY', 'ALWAYS']
-COUNTRIES = ['United Kingdom','Albania','Andora','Armenia','Austria','Azerbaijan','Belarus','Belgium','Bosnia and Herzegovina','Bulgaria','Croatia','Cyprus','Czech Republic','Denmark','Estonia','Finland','France','Georgia','Germany','Greece','Hungary','Iceland','Ireland','Italy','Kazakhstan','Latvia','Liechtenstein','Lithuania','Luxembourg','Macedonia'
+COUNTRIES = ['United Kingdom','Albania','Andora','Armenia','Austria','Azerbaijan','Belarus','Belgium','Bosnia and Herzegovina','Bulgaria','Croatia','Cyprus','Czech Republic','Denmark','Estonia','Finland','France','Georgia','Germany','Greece','Hungary','Iceland','Ireland','Italy','Kazakhstan','Kosovo','Latvia','Liechtenstein','Lithuania','Luxembourg','Macedonia'
 ,'Malta','Moldova','Monaco','Montenegro','Netherlands','Norway','Poland','Portugal','Romania','Russia','San Marino','Serbia','Slovakia','Slovenia','Spain','Sweden','Switzerland','Turkey','Ukraine','Vatican City']
-LANGUAGES = ['English','Bulgarian','Croatian','Danish','Dutch','Estonian','Finnish','French','German','Greek','Hungarian','Italian','Latvian','Lithuanian','Maltese','Polish','Portuguese','Romanian','Slovak','Spanish','Swedish']
+LANGUAGES = ['English','Bulgarian','Czech','Croatian','Danish','Dutch','Estonian','Finnish','French','German','Greek','Hungarian','Icelandic','Italian','Latvian','Lithuanian','Maltese','Norwegian','Polish','Portuguese','Romanian','Slovak','Spanish','Swedish','Ukrainian']
 
 log = logging.getLogger(__name__)
 

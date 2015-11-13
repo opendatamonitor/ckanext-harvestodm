@@ -329,7 +329,7 @@ def harvest_jobs_run(context,data_dict):
                           .order_by(HarvestObject.import_finished.desc())
 
                 if objects.count() == 0:
-               
+                    
                     #harmonisation job create for harvest jobs finished fetch stage
                     job_source_id=job['source_id']
                     #get harvest info
@@ -351,9 +351,8 @@ def harvest_jobs_run(context,data_dict):
                        harmonisation_job['harmonised']=harmonised
                        harmonisation_job['status']="pending"
                        harmonisation_job['dates']="dates_selected"
-                       harmonisation_job['countries']="countries_selected"
                        harmonisation_job['catalogue_selection']=title
-                       harmonisation_job['languages']="languages_selected"
+                       harmonisation_job['deduplication']="deduplication_selected"
                        harmonisation_job['resources']="resources_selected"
                        harmonisation_job['licenses']="licenses_selected"
                        harmonisation_job['categories']="categories_selected"
@@ -397,6 +396,18 @@ def harvest_jobs_run(context,data_dict):
     publisher = get_gather_publisher()
     sent_jobs = []
     for job in jobs:
+        job_source_id=job['source_id']
+    #get harvest info
+        harvest_source_info= HarvestSource.get(job['source_id'])
+        cat_url=harvest_source_info.url
+        title=harvest_source_info.title
+        db = client.odm
+        collection=db.jobs
+        document=collection.find_one({"title":title})
+       
+        if document!=None and len(document.keys())>4:
+          document.update({"date_reharvested":datetime.datetime.now()})
+          collection.save(document)
         context['detailed'] = False
         source = harvest_source_show(context,{'id':job['source_id']})
         if source['active']:

@@ -27,13 +27,7 @@ mongoport=config['ckan:odm_extensions']['mongoport']
 client=pymongo.MongoClient(str(mongoclient), int(mongoport))
 db=client.odm
 odm=db.odm
-#document=odm.aggregate([{ "$group" :{"_id" : "$id", "elements" : { "$sum" : 1}}},{"$match": {"elements": {"$gt":0}}},{"$sort":{"elements":-1}}])
-#j=0
-#ids=[]
-#while j<len(document['result']):
-  #ids.append(document['result'][j]['_id'])
-  #j+=1
-#print(len(ids))
+
 
 
 
@@ -58,7 +52,7 @@ class CKANHarvester(HarvesterBase):
         )
 
         api_key = self.config.get('api_key',None)
-        if api_key:
+        if api_key: 
             http_request.add_header('Authorization',api_key)
         http_response = urllib2.urlopen(http_request)
 
@@ -145,6 +139,8 @@ class CKANHarvester(HarvesterBase):
         log.debug('In CKANHarvester gather_stage (%s)' % harvest_job.source.url)
         get_all_packages = True
         package_ids = []
+        config=json.loads(harvest_job.source.config)
+        apiversion=config['api_version']
 
         self._set_config(harvest_job.source.config)
 
@@ -161,8 +157,22 @@ class CKANHarvester(HarvesterBase):
         base_rest_url = base_url + self._get_rest_api_offset()
         base_search_url = base_url + self._get_search_api_offset()
 
+        ##load existing datasets names and ids from mongoDb
+        datasets=list(odm.find({'catalogue_url':harvest_job.source.url}))
+        datasets_ids=[]
+        datasets_names=[]
+        j=0
+        while j<len(datasets):
+		  try:
+			datasets_ids.append(datasets[j]['id'])
+		  except:pass
+		  try:
+			datasets_names.append(datasets[j]['name'])
+		  except:pass
+		  j+=1
+
         if (previous_job and not previous_job.gather_errors and not len(previous_job.objects) == 0):
-            print('previous job found')
+            #print('previous job found')
             if not self.config.get('force_all',False):
                 get_all_packages = True
 
@@ -204,15 +214,80 @@ class CKANHarvester(HarvesterBase):
         if get_all_packages:
             # Request all remote packages
             url = base_rest_url + '/package'
+            #api 3 -> get action case
+            if apiversion==3:
+			  url=harvest_job.source.url.rstrip('/')+"/api/3/action/package_list"
+			 # print(url)
+			  try:
+				content = self._get_content(url)
+			  except Exception,e:
+				self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+				return None
+			  content = json.loads(content)
+			  package_ids=content['result']
 	    if 'http://data.noe.gv.at' in url:
 		url='http://data.noe.gv.at/api/search'
+	    if 'data.gouv.fr' in url:
+		  url="http://qa.data.gouv.fr/api/1/datasets?organization="
             try:
                 content = self._get_content(url)
             except Exception,e:
                 self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
                 return None
+            if apiversion!=3:
+			  package_ids = json.loads(content)
+            if 'data.gouv.fr' in url:
+		package_ids=package_ids['value']
 
-            package_ids = json.loads(content)
+        ##check for deleted datasets that exist in mongo
+        count_pkg_ids=0
+        while count_pkg_ids<len(package_ids):
+		  temp_pckg_id=package_ids[count_pkg_ids]
+		  if temp_pckg_id in datasets_ids:
+			datasets_ids.remove(temp_pckg_id)
+		  if temp_pckg_id in datasets_names:
+			datasets_names.remove(temp_pckg_id)
+		  count_pkg_ids+=1
+        if len(datasets_names)<len(datasets_ids):
+		  #print(datasets_names)
+		  j=0
+		  #print(base_url)
+		  while j<len(datasets_names):
+			i=0
+			while i<len(datasets):
+			  if datasets_names[j] in datasets[i]['name']:
+				document=datasets[i]
+				document.update({"deleted_dataset":True})
+				odm.save(document)
+			  i+=1
+			#document=odm.find_one({"catalogue_url":str(base_url),"name":datasets_names[j]})
+			#if document==None:
+			  #document=odm.find_one({"catalogue_url":str(base_url)+"/","name":datasets_names[j]})
+			  #print(document)
+			#document.update({"deleted_dataset":True})
+			#odm.save(document)
+			j+=1
+        else:
+		  #print(datasets_ids)
+		  j=0
+		  while j<len(datasets_ids):
+			i=0
+			while i<len(datasets):
+			  if datasets_ids[j] in datasets[i]['id']:
+				document=datasets[i]
+				document.update({"deleted_dataset":True})
+				odm.save(document)
+			  i+=1
+			#document=odm.find_one({"catalogue_url":str(base_url),"id":datasets_ids[j]})
+			#if document==None:
+			  #document=odm.find_one({"catalogue_url":str(base_url)+"/","id":datasets_ids[j]})
+			#document.update({"deleted_dataset":True})
+			#odm.save(document)
+			j+=1
+
+
+
+
 
         try:
             object_ids = []
@@ -236,22 +311,36 @@ class CKANHarvester(HarvesterBase):
     def fetch_stage(self,harvest_object):
         log.debug('In CKANHarvester fetch_stage')
         self._set_config(harvest_object.job.source.config)
-
+        config=json.loads(harvest_object.job.source.config)
+        apiversion=config['api_version']
         # Get source URL
         url = harvest_object.source.url.rstrip('/')
+        ##set type for custom made ckan catalogues
+        types=[]
+        config=json.loads(harvest_object.job.source.config)
+        if 'type' in config.keys():
+		  types=config['type']
+        types.append('dataset')
+        
+
 	text_file = open(str(ckan_harvester_error_log), "a")
-	print(url)
+	
 	#-- Connect to mongoDb:
 	
 
 
 	db1=db.odm
 	db_jobs=db.jobs
+	db_fetch_temp=db.fetch_temp
         url = url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
 	if 'http://data.noe.gv.at' in url:
 		url='http://data.noe.gv.at/api/json/'+harvest_object.guid
-        # Get contents
-        #print(str(datetime.datetime.now())+"try to get content")	
+	if 'data.gouv.fr' in url:
+		url='http://qa.data.gouv.fr/api/1/datasets/'+harvest_object.guid
+        if apiversion==3:
+		url=harvest_object.source.url.rstrip('/')+'/api/3/action/package_show?id='+harvest_object.guid
+        #print(url)	
+       	
         try:
             content = self._get_content(url)
         except Exception,e:
@@ -260,17 +349,37 @@ class CKANHarvester(HarvesterBase):
             return None
 
 
-        #print(str(datetime.datetime.now())+"got content")
+        
         # Save the fetched contents in the HarvestObject
         harvest_object.content = content
 	try:
         	harvest_object.save()
 	except:
 		pass
-        #print(str(datetime.datetime.now())+"try to store")
+       
 	#TRANSFORMATIONS TO JSON FOR MongoDB
 	try:
 		content=json.loads(content)
+                if apiversion==3:
+	            try:
+	                content=content['result'][0]
+	            except:
+                        content=content['result']
+	            #print(content)
+	            i=0
+	            found=False
+	            while i<len(content.keys()):
+		        if content.keys()[i]=='url':
+		            found=True
+		        i+=1
+	            if found==False:
+	                dataset_url=harvest_object.source.url.rstrip('/')+"/dataset/"+harvest_object.guid
+	                content.update({"url":dataset_url})
+		        
+	            
+
+		if 'data.gouv.fr' in url:
+			content=content['value']
 		base_url = harvest_object.source.url
 		try:
 		  doc=db_jobs.find_one({"cat_url":str(base_url)})
@@ -291,107 +400,414 @@ class CKANHarvester(HarvesterBase):
 		#-- STORE to Mongodb
 		try:
 			exec(content3)
-			try:
-				for key, value in content4['extras'].iteritems():
-					 if '.' in key:
-						 temp=key.replace('.','_')
-						 content4['extras'][temp]=value
-						 del content4['extras'][key]
-				l=0
-				while l<len(content4['resources']):
-					for key, value in content4['resources'][l].iteritems():
+			if 'type' in content4.keys() and (content4['type'] in types or content4['type'].lower() in types):
+				try:
+					for key, value in content4['extras'].iteritems():
 						 if '.' in key:
 							 temp=key.replace('.','_')
-							 content4['resources'][temp]=value
-							 del content4['resources'][key]
-					l+=1
-				document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
-				if document==None:
-				  db1.save(content4)
-				  log.info('Metadata stored succesfully to MongoDb.')
-				else:
-					  	
-						  met_created=document['metadata_created']
-						  content4.update({'metadata_created':met_created})
-						  content4.update({'metadata_updated':str(datetime.datetime.now())})
-						  content4.update({'updated_dataset':True})
-						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
-						  db1.save(content4)
-						  log.info('Metadata updated succesfully to MongoDb.')
-	
-			except :
-				try:
+							 content4['extras'][temp]=value
+							 del content4['extras'][key]
+					l=0
+					while l<len(content4['resources']):
+						for key, value in content4['resources'][l].iteritems():
+							 if '.' in key:
+								 temp=key.replace('.','_')
+								 content4['resources'][temp]=value
+								 del content4['resources'][key]
+						l+=1
 					document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
 					if document==None:
 					  db1.save(content4)
 					  log.info('Metadata stored succesfully to MongoDb.')
-					else:
-						  met_created=document['metadata_created']
-						  content4.update({'metadata_created':met_created})
-						  content4.update({'metadata_updated':str(datetime.datetime.now())})
-						  content4.update({'updated_dataset':True})
-						  db1.remove({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
-						  db1.save(content4)
-						  log.info('Metadata updated succesfully to MongoDb.')
+					  print('Metadata stored succesfully to MongoDb.')
+					  fetch_document=db_fetch_temp.find_one()
+					  if fetch_document==None:
+						fetch_document={}
+						fetch_document.update({"cat_url":base_url})
+						fetch_document.update({"new":1})
+						fetch_document.update({"updated":0})
+						db_fetch_temp.save(fetch_document)
+					  else:
+						if base_url==fetch_document['cat_url']:
+						  new_count=fetch_document['new']
+						  new_count+=1
+						  fetch_document.update({"new":new_count})
+						  db_fetch_temp.save(fetch_document)
+						else:
+						  last_cat_url=fetch_document['cat_url']
+						  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+						  if 'new' in fetch_document.keys():
+							new=fetch_document['new']
+							if 'new' in doc.keys():
+							  last_new=doc['new']
+							  doc.update({"last_new":last_new})
+							doc.update({"new":new})
+							db_jobs.save(doc)
+						  if 'updated' in fetch_document.keys():
+							updated=fetch_document['updated']
+							if 'updated' in doc.keys():
+							  last_updated=doc['updated']
+							  doc.update({"last_updated":last_updated})
+							doc.update({"updated":updated})
+							db_jobs.save(doc)
+						  fetch_document.update({"cat_url":base_url})
+						  fetch_document.update({"new":1})
+						  fetch_document.update({"updated":0})
+						  db_fetch_temp.save(fetch_document)				  
 
-				except:
-					pass
+
+					else:
+						  	
+							  met_created=document['metadata_created']
+							  if 'copied' in document.keys():
+								content4.update({'copied':document['copied']})
+							  content4.update({'metadata_created':met_created})
+							  content4.update({'metadata_updated':str(datetime.datetime.now())})
+							  content4.update({'updated_dataset':True})
+							  objectid=document['_id']
+							  content4.update({'_id':objectid})
+							  db1.save(content4)
+							  log.info('Metadata updated succesfully to MongoDb.')
+							  print('Metadata updated succesfully to MongoDb.')
+							  fetch_document=db_fetch_temp.find_one()
+							  if fetch_document==None:
+								fetch_document={}
+								fetch_document.update({"cat_url":base_url})
+								fetch_document.update({"updated":1})
+								fetch_document.update({"new":0})
+								db_fetch_temp.save(fetch_document)
+							  else:
+								if base_url==fetch_document['cat_url']:
+								  updated_count=fetch_document['updated']
+								  updated_count+=1
+								  fetch_document.update({"updated":updated_count})
+								  db_fetch_temp.save(fetch_document)
+								else:
+								  last_cat_url=fetch_document['cat_url']
+								  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+								  if 'new' in fetch_document.keys():
+									new=fetch_document['new']
+									if 'new' in doc.keys():
+									  last_new=doc['new']
+									  doc.update({"last_new":last_new})
+									doc.update({"new":new})
+									db_jobs.save(doc)
+								  if 'updated' in fetch_document.keys():
+									updated=fetch_document['updated']
+									if 'updated' in doc.keys():
+									  last_updated=doc['updated']
+									  doc.update({"last_updated":last_updated})
+									doc.update({"updated":updated})
+									db_jobs.save(doc)
+								  fetch_document.update({"cat_url":base_url})
+								  fetch_document.update({"updated":1})
+								  fetch_document.update({"new":0})
+								  db_fetch_temp.save(fetch_document)
+
+	
+				except :
+					try:
+						document=db1.find_one({"id":content4['id'],"catalogue_url":content4['catalogue_url']})
+						if document==None:
+						  db1.save(content4)
+						  log.info('Metadata stored succesfully to MongoDb.')
+						  print('Metadata stored succesfully to MongoDb.')
+						  fetch_document=db_fetch_temp.find_one()
+						  if fetch_document==None:
+							fetch_document={}
+							fetch_document.update({"cat_url":base_url})
+							fetch_document.update({"new":1})
+							fetch_document.update({"updated":0})
+							db_fetch_temp.save(fetch_document)
+						  else:
+							if base_url==fetch_document['cat_url']:
+							  new_count=fetch_document['new']
+							  new_count+=1
+							  fetch_document.update({"new":new_count})
+							  db_fetch_temp.save(fetch_document)
+							else:
+							  last_cat_url=fetch_document['cat_url']
+							  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+							  if 'new' in fetch_document.keys():
+								new=fetch_document['new']
+								if 'new' in doc.keys():
+								  last_new=doc['new']
+								  doc.update({"last_new":last_new})
+								doc.update({"new":new})
+								db_jobs.save(doc)
+							  if 'updated' in fetch_document.keys():
+								updated=fetch_document['updated']
+								if 'updated' in doc.keys():
+								  last_updated=doc['updated']
+								  doc.update({"last_updated":last_updated})
+								doc.update({"updated":updated})
+								db_jobs.save(doc)
+							  fetch_document.update({"cat_url":base_url})
+							  fetch_document.update({"new":1})
+							  fetch_document.update({"updated":0})
+							  db_fetch_temp.save(fetch_document)
+
+
+
+						else:
+							  met_created=document['metadata_created']
+							  if 'copied' in document.keys():
+								content4.update({'copied':document['copied']})
+							  content4.update({'metadata_created':met_created})
+							  content4.update({'metadata_updated':str(datetime.datetime.now())})
+							  content4.update({'updated_dataset':True})
+							  objectid=document['_id']
+							  content4.update({"_id":objectid})
+							  db1.save(content4)
+							  log.info('Metadata updated succesfully to MongoDb.')
+							  print('Metadata updated succesfully to MongoDb.')
+							  fetch_document=db_fetch_temp.find_one()
+							  if fetch_document==None:
+								fetch_document={}
+								fetch_document.update({"cat_url":base_url})
+								fetch_document.update({"updated":1})
+								fetch_document.update({"new":0})
+								db_fetch_temp.save(fetch_document)
+							  else:
+								if base_url==fetch_document['cat_url']:
+								  updated_count=fetch_document['updated']
+								  updated_count+=1
+								  fetch_document.update({"updated":updated_count})
+								  db_fetch_temp.save(fetch_document)
+								else:
+								  last_cat_url=fetch_document['cat_url']
+								  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+								  if 'new' in fetch_document.keys():
+									new=fetch_document['new']
+									if 'new' in doc.keys():
+									  last_new=doc['new']
+									  doc.update({"last_new":last_new})
+									doc.update({"new":new})
+									db_jobs.save(doc)
+								  if 'updated' in fetch_document.keys():
+									updated=fetch_document['updated']
+									if 'updated' in doc.keys():
+									  last_updated=doc['updated']
+									  doc.update({"last_updated":last_updated})
+									doc.update({"updated":updated})
+									db_jobs.save(doc)
+								  fetch_document.update({"cat_url":base_url})
+								  fetch_document.update({"updated":1})
+								  fetch_document.update({"new":0})
+								  db_fetch_temp.save(fetch_document)
+
+					except:
+						pass
 		except SyntaxError:
 			content5="content6="+content1.replace("null",'""').replace('""""','""')
 			try:
 				exec(content5)
 				#text_file.write("Syntax Error")
-				document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
-				if document==None:
-				  db1.save(content6)
-				  log.info('Metadata stored succesfully to MongoDb.')
-				else:
+				if 'type' in content6.keys() and (content6['type'] in types or content6['type'].lower() in types):
+					document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+					if document==None:
+					  db1.save(content6)
+					  log.info('Metadata stored succesfully to MongoDb.')
+					  print('Metadata stored succesfully to MongoDb.')
+					  fetch_document=db_fetch_temp.find_one()
+					  if fetch_document==None:
+						fetch_document={}
+						fetch_document.update({"cat_url":base_url})
+						fetch_document.update({"new":1})
+						fetch_document.update({"updated":0})
+						db_fetch_temp.save(fetch_document)
+					  else:
+						if base_url==fetch_document['cat_url']:
+						  new_count=fetch_document['new']
+						  new_count+=1
+						  fetch_document.update({"new":new_count})
+						  db_fetch_temp.save(fetch_document)
+						else:
+						  last_cat_url=fetch_document['cat_url']
+						  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+						  if 'new' in fetch_document.keys():
+							new=fetch_document['new']
+							if 'new' in doc.keys():
+							  last_new=doc['new']
+							  doc.update({"last_new":last_new})
+							doc.update({"new":new})
+							db_jobs.save(doc)
+						  if 'updated' in fetch_document.keys():
+							updated=fetch_document['updated']
+							if 'updated' in doc.keys():
+							  last_updated=doc['updated']
+							  doc.update({"last_updated":last_updated})
+							doc.update({"updated":updated})
+							db_jobs.save(doc)
+						  fetch_document.update({"cat_url":base_url})
+						  fetch_document.update({"new":1})
+						  fetch_document.update({"updated":0})
+						  db_fetch_temp.save(fetch_document)			
 
-						  met_created=document['metadata_created']
-						  content6.update({'metadata_created':met_created})
-						  content6.update({'metadata_updated':str(datetime.datetime.now())})
-						  content6.update({'updated_dataset':True})
-						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
-						  db1.save(content6)
-						  log.info('Metadata updated succesfully to MongoDb.')
+
+					else:
+
+							  met_created=document['metadata_created']
+							  if 'copied' in document.keys():
+								content6.update({'copied':document['copied']})
+							  content6.update({'metadata_created':met_created})
+							  content6.update({'metadata_updated':str(datetime.datetime.now())})
+							  content6.update({'updated_dataset':True})
+							  objectid=document['_id']
+							  content6.update({"_id":objectid})
+							  db1.save(content6)
+							  log.info('Metadata updated succesfully to MongoDb.')
+							  print('Metadata updated succesfully to MongoDb.')
+							  fetch_document=db_fetch_temp.find_one()
+							  #print("fetcher:"+str(fetch_document))
+							  if fetch_document==None:
+								
+								fetch_document={}
+								fetch_document.update({"cat_url":base_url})
+								fetch_document.update({"updated":1})
+								fetch_document.update({"new":0})
+								db_fetch_temp.save(fetch_document)
+							  else:
+								if base_url==fetch_document['cat_url']:
+								  updated_count=fetch_document['updated']
+								  updated_count+=1
+								  fetch_document.update({"updated":updated_count})
+								  db_fetch_temp.save(fetch_document)
+								else:
+								  last_cat_url=fetch_document['cat_url']
+								  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+								  if 'new' in fetch_document.keys():
+									new=fetch_document['new']
+									if 'new' in doc.keys():
+									  last_new=doc['new']
+									  doc.update({"last_new":last_new})
+									doc.update({"new":new})
+									db_jobs.save(doc)
+								  if 'updated' in fetch_document.keys():
+									updated=fetch_document['updated']
+									if 'updated' in doc.keys():
+									  last_updated=doc['updated']
+									  doc.update({"last_updated":last_updated})
+									doc.update({"updated":updated})
+									db_jobs.save(doc)
+								  fetch_document.update({"cat_url":base_url})
+								  fetch_document.update({"updated":1})
+								  fetch_document.update({"new":0})
+								  db_fetch_temp.save(fetch_document)
 
 			except SyntaxError:
 				try:
 					content5="content6="+content1.replace("null",'""').replace('""""','""').replace('1.0','"1.0"').replace('2.0','"2.0"').replace('3.0','"3.0"').replace('4.0','"4.0"').replace('5.0','"5.0"')
 					exec(content5)
 		#	text_file.write("Syntax Error")
-					for key, value in content6['extras'].iteritems():
-					    if '.' in key:
-						 temp=key.replace('.','_')
-						 content6['extras'][temp]=value
-						 del content6['extras'][key]
-					l=0
-					while l<len(content4['resources']):
-						for key, value in content6['resources'][l].iteritems():
-							 if '.' in key:
-								 temp=key.replace('.','_')
-								 content6['resources'][temp]=value
-								 del content6['resources'][key]
-						l+=1
-					document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
-					if document==None:
-					  db1.save(content6)
-					  log.info('Metadata stored succesfully to MongoDb.')
-					else:
-
-						  met_created=document['metadata_created']
-						  content6.update({'metadata_created':met_created})
-						  content6.update({'metadata_updated':str(datetime.datetime.now())})
-						  content6.update({'updated_dataset':True})
-						  db1.remove({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+					if 'type' in content6.keys() and (content6['type'] in types or content6['type'].lower() in types):
+						for key, value in content6['extras'].iteritems():
+						    if '.' in key:
+							 temp=key.replace('.','_')
+							 content6['extras'][temp]=value
+							 del content6['extras'][key]
+						l=0
+						while l<len(content4['resources']):
+							for key, value in content6['resources'][l].iteritems():
+								 if '.' in key:
+									 temp=key.replace('.','_')
+									 content6['resources'][temp]=value
+									 del content6['resources'][key]
+							l+=1
+						document=db1.find_one({"id":content6['id'],"catalogue_url":content6['catalogue_url']})
+						if document==None:
 						  db1.save(content6)
-						  log.info('Metadata updated succesfully to MongoDb.')
+						  log.info('Metadata stored succesfully to MongoDb.')
+						  print('Metadata stored succesfully to MongoDb.')
+						  fetch_document=db_fetch_temp.find_one()
+						  if fetch_document==None:
+							fetch_document={}
+							fetch_document.update({"cat_url":base_url})
+							fetch_document.update({"new":1})
+							fetch_document.update({"updated":0})
+							db_fetch_temp.save(fetch_document)
+						  else:
+							if base_url==fetch_document['cat_url']:
+							  new_count=fetch_document['new']
+							  new_count+=1
+							  fetch_document.update({"new":new_count})
+							  db_fetch_temp.save(fetch_document)
+							else:
+							  last_cat_url=fetch_document['cat_url']
+							  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+							  if 'new' in fetch_document.keys():
+								new=fetch_document['new']
+								if 'new' in doc.keys():
+								  last_new=doc['new']
+								  doc.update({"last_new":last_new})
+								doc.update({"new":new})
+								db_jobs.save(doc)
+							  if 'updated' in fetch_document.keys():
+								updated=fetch_document['updated']
+								if 'updated' in doc.keys():
+								  last_updated=doc['updated']
+								  doc.update({"last_updated":last_updated})
+								doc.update({"updated":updated})
+								db_jobs.save(doc)
+							  fetch_document.update({"cat_url":base_url})
+							  fetch_document.update({"new":1})
+							  fetch_document.update({"updated":0})
+							  db_fetch_temp.save(fetch_document)
+
+
+						else:
+
+							  met_created=document['metadata_created']
+							  if 'copied' in document.keys():
+								content6.update({'copied':document['copied']})
+							  content6.update({'metadata_created':met_created})
+							  content6.update({'metadata_updated':str(datetime.datetime.now())})
+							  content6.update({'updated_dataset':True})
+							  objectid=document['_id']
+							  content6.update({"_id":objectid})
+							  db1.save(content6)
+							  log.info('Metadata updated succesfully to MongoDb.')
+							  print('Metadata updated succesfully to MongoDb.')
+							  fetch_document=db_fetch_temp.find_one()
+							  if fetch_document==None:
+								fetch_document={}
+								fetch_document.update({"cat_url":base_url})
+								fetch_document.update({"updated":1})
+								fetch_document.update({"new":0})
+								db_fetch_temp.save(fetch_document)
+							  else:
+								if base_url==fetch_document['cat_url']:
+								  updated_count=fetch_document['updated']
+								  updated_count+=1
+								  fetch_document.update({"updated":updated_count})
+								  db_fetch_temp.save(fetch_document)
+								else:
+								  last_cat_url=fetch_document['cat_url']
+								  doc=db_jobs.find_one({'cat_url':fetch_document['cat_url']})
+								  if 'new' in fetch_document.keys():
+									new=fetch_document['new']
+									if 'new' in doc.keys():
+									  last_new=doc['new']
+									  doc.update({"last_new":last_new})
+									doc.update({"new":new})
+									db_jobs.save(doc)
+								  if 'updated' in fetch_document.keys():
+									updated=fetch_document['updated']
+									if 'updated' in doc.keys():
+									  last_updated=doc['updated']
+									  doc.update({"last_updated":last_updated})
+									doc.update({"updated":updated})
+									db_jobs.save(doc)
+								  fetch_document.update({"cat_url":base_url})
+								  fetch_document.update({"updated":1})
+								  fetch_document.update({"new":0})
+								  db_fetch_temp.save(fetch_document)
 				except SyntaxError:
 					text_file.write('Json Error : '+'\n')
 					text_file.write(str(content)+'\n'+'\n')
 
 	except:pass
-        #print(str(datetime.datetime.now())+"stored")
+        
         return True
 
     def import_stage(self,harvest_object):
@@ -409,6 +825,9 @@ class CKANHarvester(HarvesterBase):
 
         try:
             package_dict = json.loads(harvest_object.content)
+            if 'data.gouv.fr' in  package_dict['url']:
+            	package_dict=package_dict['value']
+		
 
 
             if package_dict.get('type') == 'harvest':

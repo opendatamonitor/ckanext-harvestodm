@@ -62,7 +62,8 @@ def get_connection_amqp():
                                            port=port,
                                            virtual_host=virtual_host,
                                            credentials=credentials,
-                                           frame_max=10000)
+                                           frame_max=10000,
+                                           heartbeat_interval=60000)
     log.debug("pika connection using %s" % parameters.__dict__)
 
     return pika.BlockingConnection(parameters)
@@ -198,6 +199,8 @@ def get_consumer(queue_name, routing_key):
 
 def gather_callback(channel, method, header, body):
     text_file = open("/var/local/ckan/default/pyenv/src/ckanext-harvestodm/ckanext/harvestodm/Gather_log.txt", "a")  
+    db = client.odm
+    db1=db.jobs
     try:
         id = json.loads(body)['harvest_job_id']
         log.debug('Received harvest job id: %s' % id)
@@ -259,6 +262,16 @@ def gather_callback(channel, method, header, body):
 
             if not isinstance(harvest_object_ids, list):
                 log.error('Gather stage failed')
+                document=db1.find_one({"base_url":cat_url})
+                if 'gathered' not in document.keys():
+                  document.update({"gathered":"Gather stage failed"})
+                  document.update({"last_gathered":0})
+                  db1.save(document)
+                else:
+                  temp_gathered=document['gathered']
+                  document.update({"gathered":"Gather stage failed"})
+                  document.update({"last_gathered":temp_gathered})
+                  db1.save(document)
                 text_file.write('Gather stage failed')
                 text_file.write('\n')
                 publisher.close()
@@ -275,14 +288,34 @@ def gather_callback(channel, method, header, body):
 
             log.debug('Received from plugin gather_stage: {0} objects (first: {1} last: {2})'.format(
                         len(harvest_object_ids), harvest_object_ids[:1], harvest_object_ids[-1:]))
-            connection = get_connection()	
-	    publisher = get_fetch_publisher()   
-            for id in harvest_object_ids:
-                # Send the id to the fetch queue
-                publisher.send({'harvest_object_id':id})
-            log.debug('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
-            text_file.write('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
-            text_file.write('\n')
+            try:	    
+	    	for id in harvest_object_ids:
+	        	# Send the id to the fetch queue
+	        	publisher.send({'harvest_object_id':id})
+            except:
+            	#print("WE ARE IN!!")
+            	#publisher.close()
+            	#self.connection.close()
+            	publisher = get_fetch_publisher()
+            	for id in harvest_object_ids:
+	        	# Send the id to the fetch queue
+	        	publisher.send({'harvest_object_id':id})	
+	    log.debug('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
+	    
+	    document=db1.find_one({"base_url":cat_url})
+	    if 'gathered' not in document.keys():
+	        document.update({"gathered":len(harvest_object_ids)})
+	        document.update({"last_gathered":0})
+	        db1.save(document)
+	        
+	    else:
+	        temp_gathered=document['gathered']
+	        document.update({"gathered":len(harvest_object_ids)})
+	        document.update({"last_gathered":temp_gathered})
+	        db1.save(document)
+	    text_file.write('Sent {0} objects to the fetch queue'.format(len(harvest_object_ids)))
+	    text_file.write('\n')
+                   
 
     if not harvester_found:
         msg = 'No harvester could be found for source type %s' % job.source.type
