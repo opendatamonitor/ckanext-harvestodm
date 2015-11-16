@@ -26,6 +26,17 @@ __in 'fetch' stage__:
 - add extra metadata fields (language, country, catalogue_url, platform) or use existing ones in different way (metadata_created and metadata_updated are synchronised to our platform's timings overriding the client's)
 - check whether a metadata record is already present in the MongoDB database, and accordingly create or update
 
+
+Building
+---------
+
+To build and use this plugin, simply:
+
+    git clone https://github.com/opendatamonitor/ckanext-harvestodm.git
+    cd ckanext-harvestodm
+    pip install -r pip-requirements.txt
+    python setup.py develop
+
 ## Licence
 
 This work is derived from the CKAN harvester extension (https://github.com/ckan/ckanext-harvest) and thus licensed under the GNU Affero General Public License (AGPL) v3.0 (http://www.fsf.org/licensing/licenses/agpl-3.0.html).
