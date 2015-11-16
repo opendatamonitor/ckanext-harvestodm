@@ -37,6 +37,11 @@ To build and use this plugin, simply:
     pip install -r pip-requirements.txt
     python setup.py develop
 
+Then you will need to update your CKAN configuration to include the new harvester.  This will mean adding the
+ckanext-harvestodm plugin as a plugin.  E.g.
+
+    ckan.plugins = harvestodm ckan_harvester
+
 ## Licence
 
 This work is derived from the CKAN harvester extension (https://github.com/ckan/ckanext-harvest) and thus licensed under the GNU Affero General Public License (AGPL) v3.0 (http://www.fsf.org/licensing/licenses/agpl-3.0.html).
