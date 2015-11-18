@@ -34,7 +34,7 @@ To build and use this plugin, simply:
 
     git clone https://github.com/opendatamonitor/ckanext-harvestodm.git
     cd ckanext-harvestodm
-    pip install -r pip-requirements.txt
+    pip install -r requirements.txt
     python setup.py develop
 
 Then you will need to update your CKAN configuration to include the new harvester.  This will mean adding the
