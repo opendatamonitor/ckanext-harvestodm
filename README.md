@@ -42,6 +42,13 @@ ckanext-harvestodm plugin as a plugin.  E.g.
 
     ckan.plugins = harvestodm ckan_harvester
 
+Also you need to add the odm_extension settings to the development.ini file in your ckan folder.  
+
+    [ckan:odm_extensions]
+    mongoclient=localhost
+    mongoport=27017
+    log_path=/var/local/ckan/default/pyenv/src/
+
 ## Licence
 
 This work is derived from the CKAN harvester extension (https://github.com/ckan/ckanext-harvest) and thus licensed under the GNU Affero General Public License (AGPL) v3.0 (http://www.fsf.org/licensing/licenses/agpl-3.0.html).
