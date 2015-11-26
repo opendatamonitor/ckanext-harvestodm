@@ -30,6 +30,8 @@ __in 'fetch' stage__:
 Building
 ---------
 
+In order to use this extension you need to have MongoDB installed.
+
 To build and use this plugin, simply:
 
     git clone https://github.com/opendatamonitor/ckanext-harvestodm.git
