@@ -49,6 +49,19 @@ Also you need to add the odm_extension settings to the development.ini file in y
     mongoport=27017
     log_path=/var/local/ckan/default/pyenv/src/
 
+Using
+---------
+
+After setting this up, you should be able to go to:
+    http://localhost:5000/harvest
+
+In case that you don't have the ckanext-htmlharvest extension installed (https://github.com/opendatamonitor/ckanext-htmlharvest)
+Then go to:
+    http://localhost:5000/harvest/new
+And have a new "CKAN" harvest type show up when creating sources.
+
+
+
 ## Licence
 
 This work is derived from the CKAN harvester extension (https://github.com/ckan/ckanext-harvest) and thus licensed under the GNU Affero General Public License (AGPL) v3.0 (http://www.fsf.org/licensing/licenses/agpl-3.0.html).
